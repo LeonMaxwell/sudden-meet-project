@@ -3,6 +3,7 @@ from suddenuser.models import User
 
 
 class UserRegisterSerializers(serializers.ModelSerializer):
+    """ Класс сериализатора для регистрации участника в системе. """
     class Meta:
         model = User
         fields = ('first_name', 'last_name', 'avatar', 'gender', 'email', 'password')

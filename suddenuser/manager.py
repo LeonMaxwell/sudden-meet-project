@@ -1,5 +1,5 @@
 from django.contrib.auth.models import BaseUserManager
-from PIL import Image
+
 
 class UserManager(BaseUserManager):
     """ Менеджер для модели участников """

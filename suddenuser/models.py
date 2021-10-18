@@ -1,11 +1,12 @@
-import os.path
-from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser
+from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
 from .manager import UserManager
 from django.utils.translation import gettext_lazy as _
 from PIL import Image
 from io import BytesIO
+from django.core.mail import send_mail, send_mass_mail
+
 
 class User(AbstractBaseUser):
     """ Модель участников которая создана на основе пользовательской модели """
@@ -47,17 +48,19 @@ class User(AbstractBaseUser):
         return True
 
     def save(self, *args, **kwargs):
-        img = Image.open(self.avatar)
-        watermark = Image.open('/home/leom/PycharmProjects/suddenMeetProject/pepe.png')
-        img.paste(watermark, (0,0))
-        output = BytesIO()
-        img.save(output, 'PNG', optimize=True)
-        output.seek(0)
-        self.avatar.file = output
+        if self.avatar:
+            img = Image.open(self.avatar)
+            watermark = Image.open('/home/leom/PycharmProjects/suddenMeetProject/pepe.png')
+            img.paste(watermark, (0,0))
+            output = BytesIO()
+            img.save(output, 'PNG', optimize=True)
+            output.seek(0)
+            self.avatar.file = output
         super().save(*args, **kwargs)
 
 
 class MatchSudden(models.Model):
+    """ Класс для сбора данных о симпатиях участников. """
     mover = models.OneToOneField(User, related_name='mover', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Участник")
     simpy = models.OneToOneField(User, related_name='simpy', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Симпатия")
 
@@ -65,9 +68,16 @@ class MatchSudden(models.Model):
         return f"{self.mover.first_name} оценил {self.simpy.first_name}"
 
     def mutual_sympathy(self):
+        # Метод проверки на взаимную симпатию
         all_match = MatchSudden.objects.all()
-        if all_match.get(mover=self.simpy, simpy=self.mover):
-            return "Взаимная симпатия, любите друг друга!"
-        else:
-            return "Прекрасно, мы все надеемся что это взаимно!"
+        try:
+            all_match.get(mover=self.simpy, simpy=self.mover)
+            message1 = ('Взаимность', f'Вы понравились {self.simpy.first_name}! Почта участника: {self.simpy.email}',
+                        'localhost@gmail.com', [self.mover.email])
+            message2 = ('Взаимность', f'Вы понравились {self.mover.first_name}! Почта участника: {self.mover.email}',
+                        'java.leon@mail.ru', [self.simpy.email])
+            send_mass_mail((message1, message2), fail_silently=False)
+            return "Ого это взаимно нечего себе!"
+        except ObjectDoesNotExist:
+            return "Надеюсь это будет взаимно"
 
