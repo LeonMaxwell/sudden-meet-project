@@ -1,21 +1,11 @@
+import os.path
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser
 from django.db import models
 from .manager import UserManager
 from django.utils.translation import gettext_lazy as _
 from PIL import Image
-
-
-def watermark_photo(input_image_path, output_image_path, watermark_image_path, position):
-    base_image = Image.open(input_image_path)
-    watermark = Image.open(watermark_image_path)
-    width, height = base_image.size
-
-    transparent = Image.new('RGBA', (width, height), (0, 0, 0, 0))
-    transparent.paste(base_image, (0, 0))
-    transparent.paste(watermark, position, mask=watermark)
-    transparent.show()
-    transparent.save(output_image_path)
-
+from io import BytesIO
 
 class User(AbstractBaseUser):
     """ Модель участников которая создана на основе пользовательской модели """
@@ -29,7 +19,7 @@ class User(AbstractBaseUser):
     gender = models.CharField(max_length=20, null=True, blank=True,
                               choices=GenderChoice.choices, verbose_name="Пол участника")
     email = models.EmailField(unique=True, verbose_name="Электронный адрес участника")
-    avatar = models.ImageField(upload_to="media/participants/avatar/", blank=True, null=True,
+    avatar = models.ImageField(upload_to="participants/avatar/", blank=True, null=True,
                                verbose_name="Аватар участника")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата регестрации")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
@@ -42,17 +32,42 @@ class User(AbstractBaseUser):
 
     REQUIRED_FIELDS = ['first_name', 'last_name', 'gender', 'avatar']
 
-    object = UserManager()
+    objects = UserManager()
 
     def __str__(self):
         return self.email
 
     class Meta:
-        ordering = ('-created_at', '-updated_at', )
+        ordering = ('-created_at', '-updated_at',)
 
     def has_perm(self, perm, obj=None):
         return True
 
     def has_module_perms(self, app_label):
         return True
+
+    def save(self, *args, **kwargs):
+        img = Image.open(self.avatar)
+        watermark = Image.open('/home/leom/PycharmProjects/suddenMeetProject/pepe.png')
+        img.paste(watermark, (0,0))
+        output = BytesIO()
+        img.save(output, 'PNG', optimize=True)
+        output.seek(0)
+        self.avatar.file = output
+        super().save(*args, **kwargs)
+
+
+class MatchSudden(models.Model):
+    mover = models.OneToOneField(User, related_name='mover', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Участник")
+    simpy = models.OneToOneField(User, related_name='simpy', on_delete=models.CASCADE, null=True, blank=True, verbose_name="Симпатия")
+
+    def __str__(self):
+        return f"{self.mover.first_name} оценил {self.simpy.first_name}"
+
+    def mutual_sympathy(self):
+        all_match = MatchSudden.objects.all()
+        if all_match.get(mover=self.simpy, simpy=self.mover):
+            return "Взаимная симпатия, любите друг друга!"
+        else:
+            return "Прекрасно, мы все надеемся что это взаимно!"
 
