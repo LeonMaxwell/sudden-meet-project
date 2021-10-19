@@ -1,11 +1,28 @@
 from django.contrib.auth.models import AbstractBaseUser
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models
+from django.db.models.expressions import RawSQL
+import math
+from django.db.backends.signals import connection_created
+from django.dispatch import receiver
 from .manager import UserManager
 from django.utils.translation import gettext_lazy as _
 from PIL import Image
 from io import BytesIO
 from django.core.mail import send_mail, send_mass_mail
+
+
+@receiver(connection_created)
+def extend_sqlite(connection=None, **kwargs):
+    if connection.vendor == "sqlite":
+        # sqlite doesn't natively support math functions, so add them
+        cf = connection.connection.create_function
+        cf('acos', 1, math.acos)
+        cf('cos', 1, math.cos)
+        cf('radians', 1, math.radians)
+        cf('sin', 1, math.sin)
+        cf('least', 2, min)
+        cf('greatest', 2, max)
 
 
 class User(AbstractBaseUser):
@@ -22,6 +39,8 @@ class User(AbstractBaseUser):
     email = models.EmailField(unique=True, verbose_name="Электронный адрес участника")
     avatar = models.ImageField(upload_to="participants/avatar/", blank=True, null=True,
                                verbose_name="Аватар участника")
+    longitude = models.FloatField(max_length=255, null=True, blank=True, verbose_name="Долгота")
+    latitude = models.FloatField(max_length=255, null=True, blank=True, verbose_name="Широта")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата регестрации")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
