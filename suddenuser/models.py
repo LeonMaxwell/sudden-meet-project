@@ -15,7 +15,7 @@ from django.core.mail import send_mail, send_mass_mail
 @receiver(connection_created)
 def extend_sqlite(connection=None, **kwargs):
     if connection.vendor == "sqlite":
-        # sqlite doesn't natively support math functions, so add them
+        # sqlite не понимает матиматические операции, поэтому добавим ей эту возможность
         cf = connection.connection.create_function
         cf('acos', 1, math.acos)
         cf('cos', 1, math.cos)
